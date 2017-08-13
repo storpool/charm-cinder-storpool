@@ -1,0 +1,9 @@
+name: storpool-cinder
+summary: Combine several layers to do... Cinder storage stuff.
+maintainer: StorPool <support@storpool.com>
+description: |
+  FIXME: write something about this.
+  This charm will one day let Cinder configure itself and stuff.
+requires:
+  storpool-config:
+    interface: storpool-config
