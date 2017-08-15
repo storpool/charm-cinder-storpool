@@ -14,6 +14,15 @@ def rdebug(s):
 	with open('/tmp/storpool-charms.log', 'a') as f:
 		print('{tm} [cinder-charm] {s}'.format(tm=time.ctime(), s=s), file=f)
 
+@reactive.when('storage-backend.available')
+def do_configure(hk):
+	rdebug('storage-backend.available, configuring the thing')
+	hk.configure()
+	rdebug('done configuring the storage-backend, it seems')
+
+"""
+Figure this out... the storpool-config way doesn't work.
+
 @reactive.when('storpool-config.available')
 def get_storpool_config(hconfig):
 	rdebug('apparently the storpool-config hook is available now: {h}'.format(h=hconfig))
@@ -65,3 +74,4 @@ def configure(hconfig):
 
 	reactive.set_state('storpool-cinder.configured')
 	hookenv.status_set('active', 'up and running and configured')
+"""

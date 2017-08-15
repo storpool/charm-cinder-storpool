@@ -4,6 +4,12 @@ maintainer: StorPool <support@storpool.com>
 description: |
   FIXME: write something about this.
   This charm will one day let Cinder configure itself and stuff.
+subordinate: true
+provides:
+  storage-backend:
+    interface: cinder-backend
+    scope: container
 requires:
-  storpool-config:
-    interface: storpool-config
+  juju-info:
+    interface: juju-info
+    scope: container
