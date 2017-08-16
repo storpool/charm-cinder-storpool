@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import json
 import platform
 import time
 
@@ -14,64 +15,62 @@ def rdebug(s):
 	with open('/tmp/storpool-charms.log', 'a') as f:
 		print('{tm} [cinder-charm] {s}'.format(tm=time.ctime(), s=s), file=f)
 
-@reactive.when('storage-backend.available')
-def do_configure(hk):
-	rdebug('storage-backend.available, configuring the thing')
-	hk.configure()
-	rdebug('done configuring the storage-backend, it seems')
+@reactive.when('storage-backend.configure')
+@reactive.when_not('storpool-presence.configure')
+def no_presence():
+	rdebug('no StorPool presence data yet')
+	hookenv.status_set('maintenance', 'waiting for the StorPool block presence data')
 
-"""
-Figure this out... the storpool-config way doesn't work.
+@reactive.when_not('storage-backend.configure')
+@reactive.when('storpool-presence.configure')
+def no_presence():
+	rdebug('no Cinder hook yet')
+	hookenv.status_set('maintenance', 'waiting for the Cinder relation')
 
-@reactive.when('storpool-config.available')
-def get_storpool_config(hconfig):
-	rdebug('apparently the storpool-config hook is available now: {h}'.format(h=hconfig))
-	try:
-		rdebug('let us see what this is all about')
-		conf = hconfig.get_storpool_config()
-		if conf is None:
-			rdebug('no config yet...')
-			reactive.remove_state('storpool-cinder.configure')
-			reactive.remove_state('storpool-cinder.configured')
-			return
-		rdebug('  - we have *some* configuration, checking for our node {node}'.format(node=sp_node))
-		nodeconf = conf.get(sp_node, None)
-		if nodeconf is None:
-			rdebug('no config from our node yet...')
-			reactive.remove_state('storpool-cinder.configure')
-			reactive.remove_state('storpool-cinder.configured')
-			return
-		rdebug('  - yeah, we are on!')
-		if helpers.data_changed('storpool-cinder.conf', nodeconf) or not helpers.is_state('storpool-cinder.configured'):
-			rdebug('  - and something changed, what do you know?')
-			reactive.set_state('storpool-cinder.configure')
-			reactive.remove_state('storpool-cinder.configured')
-		else:
-			rdebug('  - but nothing changed for our node {node}'.format(node=sp_node))
-	except Exception as e:
-		rdebug('could not examine the hook conversation: {e}'.format(e=e))
+@reactive.when_not('storage-backend.configure')
+@reactive.when_not('storpool-presence.configure')
+def no_presence():
+	rdebug('no Cinder hook or StorPool presence data yet')
+	hookenv.status_set('maintenance', 'waiting for the Cinder relation and the StorPool presence data')
 
-@reactive.when_not('storpool-config.available')
-@reactive.when_not('storpool-cinder.configured')
-def no_whee_yet():
-	rdebug('hm, we do not have a storpool-config hook yet?')
-	hookenv.status_set('maintenance', 'waiting for the storpool-config hook')
+@reactive.when('storage-backend.configure')
+@reactive.when('storpool-presence.configure')
+def storage_backend_configure(hk):
+	rdebug('configuring cinder and stuff')
+	service = hookenv.service_name()
+	data = {
+		'cinder': {
+			'/etc/cinder/cinder.conf': {
+				'sections': {
+					service: [
+						('volume_backend_name', service),
+						('volume_driver', 'cinder.volume.drivers.storpool.StorPoolDriver'),
+						('storpool_template', 'hybrid-r3'),
+					],
+				},
+			},
+		},
+	}
+	rdebug('configure setting some data: {data}'.format(data=data))
+	rdebug('now looking for our Cinder relation...')
+	rel_ids = hookenv.relation_ids('storage-backend')
+	rdebug('got rel_ids {rel_ids}'.format(rel_ids=rel_ids))
+	for rel_id in rel_ids:
+		rdebug('- trying for {rel_id}'.format(rel_id=rel_id))
+		hookenv.relation_set(rel_id,
+			backend_name=hookenv.service_name(),
+			subordinate_configuration=json.dumps(data),
+			stateless=True)
+		rdebug('  - looks like we did it for {rel_id}'.format(rel_id=rel_id))
+	rdebug('seemed to work, did it not')
+	hookenv.status_set('active', 'the StorPool Cinder backend should be up and running')
 
-@reactive.when('storpool-cinder.configure')
-@reactive.when_not('storpool-cinder.configure')
-@reactive.when('storpool-config.available')
-def configure(hconfig):
-	rdebug('trying to configure the StorPool backend of the Cinder installation')
-	reactive.remove_state('storpool-cinder.configure')
+@reactive.hook('storage-backend-relation-joined')
+def got_cinder_conn():
+	rdebug('got a cinder connection')
+	reactive.set_state('storage-backend.configure')
 
-	conf = hconfig.get_storpool_config()
-	if conf is None:
-		rdebug('erm, how did we get here with no configuration at all?')
-	nodeconf = conf.get(sp_node, None)
-	if nodeconf is None:
-		rdebug('erm, how did we get here with no node configuration?')
-	rdebug('now let us pretend we actually did something with the data')
-
-	reactive.set_state('storpool-cinder.configured')
-	hookenv.status_set('active', 'up and running and configured')
-"""
+@reactive.hook('storage-backend-relation-changed')
+def got_cinder_conn():
+	rdebug('updated a cinder connection')
+	reactive.set_state('storage-backend.configure')

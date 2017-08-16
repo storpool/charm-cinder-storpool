@@ -13,3 +13,5 @@ requires:
   juju-info:
     interface: juju-info
     scope: container
+  storpool-presence:
+    interface: storpool-presence
