@@ -45,7 +45,7 @@ def storage_backend_configure(hk):
 					service: [
 						('volume_backend_name', service),
 						('volume_driver', 'cinder.volume.drivers.storpool.StorPoolDriver'),
-						('storpool_template', 'hybrid-r3'),
+						('storpool_template', 'ssd'),
 					],
 				},
 			},
