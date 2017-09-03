@@ -9,11 +9,12 @@ from charms.reactive import helpers
 
 from charmhelpers.core import hookenv
 
+from spcharms import utils as sputils
+
 sp_node = platform.node()
 
 def rdebug(s):
-	with open('/tmp/storpool-charms.log', 'a') as f:
-		print('{tm} [cinder-charm] {s}'.format(tm=time.ctime(), s=s), file=f)
+	sputils.rdebug(s, prefix='cinder-charm')
 
 @reactive.when('storage-backend.configure')
 @reactive.when_not('storpool-presence.configure')

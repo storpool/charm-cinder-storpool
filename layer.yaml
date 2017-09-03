@@ -1,1 +1,1 @@
-includes: ['layer:basic', 'interface:storpool-presence']
+includes: ['layer:basic', 'layer:storpool-helper', 'interface:storpool-presence']
