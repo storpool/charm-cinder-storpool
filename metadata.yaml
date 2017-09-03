@@ -1,4 +1,4 @@
-name: storpool-cinder
+name: cinder-storpool
 summary: Combine several layers to do... Cinder storage stuff.
 maintainer: StorPool <support@storpool.com>
 description: |

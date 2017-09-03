@@ -1,13 +1,13 @@
 #!/usr/bin/make -f
 
-NAME?=		storpool-cinder
+NAME?=		cinder-storpool
 SERIES?=	xenial
 
 SRCS=		\
 		layer.yaml \
 		metadata.yaml \
 		\
-		reactive/storpool-cinder-charm.py \
+		reactive/cinder-storpool-charm.py \
 
 
 BUILDDIR=	${CURDIR}/../built/${SERIES}/${NAME}
