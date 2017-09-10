@@ -16,23 +16,16 @@ sp_node = platform.node()
 def rdebug(s):
 	sputils.rdebug(s, prefix='cinder-charm')
 
+@reactive.when_not('storage-backend.configure')
+def no_presence():
+	rdebug('no Cinder hook yet')
+	hookenv.status_set('maintenance', 'waiting for the Cinder relation')
+
 @reactive.when('storage-backend.configure')
 @reactive.when_not('storpool-presence.configure')
 def no_presence():
 	rdebug('no StorPool presence data yet')
 	hookenv.status_set('maintenance', 'waiting for the StorPool block presence data')
-
-@reactive.when_not('storage-backend.configure')
-@reactive.when('storpool-presence.configure')
-def no_presence():
-	rdebug('no Cinder hook yet')
-	hookenv.status_set('maintenance', 'waiting for the Cinder relation')
-
-@reactive.when_not('storage-backend.configure')
-@reactive.when_not('storpool-presence.configure')
-def no_presence():
-	rdebug('no Cinder hook or StorPool presence data yet')
-	hookenv.status_set('maintenance', 'waiting for the Cinder relation and the StorPool presence data')
 
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configure')
