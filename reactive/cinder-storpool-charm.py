@@ -16,6 +16,21 @@ sp_node = platform.node()
 def rdebug(s):
 	sputils.rdebug(s, prefix='cinder-charm')
 
+@reactive.hook('config-changed')
+def configure():
+	rdebug('config-changed')
+	config = hookenv.config()
+
+	template = config.get('storpool_template', None)
+	rdebug('and we do{xnot} have a StorPool template setting'.format(xnot=' not' if template is None else ''))
+	if template is None:
+		rdebug('no storpool_template in the configuration yet')
+		reactive.remove_state('cinder-storpool.configured')
+		return
+	
+	rdebug('we have the {template} template now'.format(template=template))
+	reactive.set_state('cinder-storpool.configured')
+
 @reactive.when_not('storage-backend.configure')
 def no_presence():
 	rdebug('no Cinder hook yet')
@@ -27,8 +42,15 @@ def no_presence():
 	rdebug('no StorPool presence data yet')
 	hookenv.status_set('maintenance', 'waiting for the StorPool block presence data')
 
+@reactive.when('storpool-presence.configure')
+@reactive.when_not('cinder-storpool.configured')
+def no_config(hk):
+	rdebug('no StorPool configuration yet')
+	hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
+
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configure')
+@reactive.when('cinder-storpool.configured')
 def storage_backend_configure(hk):
 	rdebug('configuring cinder and stuff')
 	service = hookenv.service_name()
@@ -39,7 +61,7 @@ def storage_backend_configure(hk):
 					service: [
 						('volume_backend_name', service),
 						('volume_driver', 'cinder.volume.drivers.storpool.StorPoolDriver'),
-						('storpool_template', 'ssd'),
+						('storpool_template', hookenv.config()['storpool_template']),
 					],
 				},
 			},

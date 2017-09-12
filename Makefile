@@ -4,6 +4,7 @@ NAME?=		cinder-storpool
 SERIES?=	xenial
 
 SRCS=		\
+		config.yaml \
 		icon.svg \
 		layer.yaml \
 		metadata.yaml \
