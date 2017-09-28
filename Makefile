@@ -27,8 +27,7 @@ clean:
 	rm -rf -- '${TARGETDIR}'
 
 deploy:	all
-	#juju deploy --to 19 --config /root/pp/storpool-config.yaml -- '${TARGETDIR}'
-	juju deploy --config /root/pp/storpool-config.yaml -- '${TARGETDIR}'
+	juju deploy -- '${TARGETDIR}'
 
 upgrade:	all
 	juju upgrade-charm --path '${TARGETDIR}' -- '${NAME}'
