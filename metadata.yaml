@@ -2,8 +2,9 @@ name: cinder-storpool
 summary: Combine several layers to do... Cinder storage stuff.
 maintainer: StorPool <support@storpool.com>
 description: |
-  FIXME: write something about this.
-  This charm will one day let Cinder configure itself and stuff.
+  This charm waits for the "storpool-block" charm to report readiness on
+  the current node and then provides the "cinder" charm with
+  the configuration for the "cinder-storpool" backend.
 subordinate: true
 provides:
   storage-backend:
