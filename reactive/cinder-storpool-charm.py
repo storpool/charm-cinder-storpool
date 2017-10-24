@@ -22,7 +22,8 @@ def configure():
     config = hookenv.config()
 
     template = config.get('storpool_template', None)
-    rdebug('and we do{xnot} have a StorPool template setting'.format(xnot=' not' if template is None else ''))
+    rdebug('and we do{xnot} have a StorPool template setting'
+           .format(xnot=' not' if template is None else ''))
     if template is None:
         rdebug('no storpool_template in the configuration yet')
         reactive.remove_state('cinder-storpool.configured')
@@ -42,7 +43,8 @@ def no_presence():
 @reactive.when_not('storpool-presence.configure')
 def no_presence():
     rdebug('no StorPool presence data yet')
-    hookenv.status_set('maintenance', 'waiting for the StorPool block presence data')
+    hookenv.status_set('maintenance',
+                       'waiting for the StorPool block presence data')
 
 
 @reactive.when('storpool-presence.configure')
@@ -63,9 +65,12 @@ def storage_backend_configure(hk):
             '/etc/cinder/cinder.conf': {
                 'sections': {
                     service: [
-                        ('volume_backend_name', service),
-                        ('volume_driver', 'cinder.volume.drivers.storpool.StorPoolDriver'),
-                        ('storpool_template', hookenv.config()['storpool_template']),
+                        ('volume_backend_name',
+                         service),
+                        ('volume_driver',
+                         'cinder.volume.drivers.storpool.StorPoolDriver'),
+                        ('storpool_template',
+                         hookenv.config()['storpool_template']),
                     ],
                 },
             },
@@ -83,7 +88,8 @@ def storage_backend_configure(hk):
                              stateless=True)
         rdebug('  - looks like we did it for {rel_id}'.format(rel_id=rel_id))
     rdebug('seemed to work, did it not')
-    hookenv.status_set('active', 'the StorPool Cinder backend should be up and running')
+    hookenv.status_set('active',
+                       'the StorPool Cinder backend should be up and running')
 
 
 @reactive.hook('storage-backend-relation-joined')
