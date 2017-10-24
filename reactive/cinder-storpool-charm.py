@@ -34,14 +34,14 @@ def configure():
 
 
 @reactive.when_not('storage-backend.configure')
-def no_presence():
+def no_cinder_presence():
     rdebug('no Cinder hook yet')
     hookenv.status_set('maintenance', 'waiting for the Cinder relation')
 
 
 @reactive.when('storage-backend.configure')
 @reactive.when_not('storpool-presence.configure')
-def no_presence():
+def no_storpool_presence():
     rdebug('no StorPool presence data yet')
     hookenv.status_set('maintenance',
                        'waiting for the StorPool block presence data')
@@ -99,6 +99,6 @@ def got_cinder_conn():
 
 
 @reactive.hook('storage-backend-relation-changed')
-def got_cinder_conn():
+def changed_cinder_conn():
     rdebug('updated a cinder connection')
     reactive.set_state('storage-backend.configure')
