@@ -2,10 +2,8 @@ from __future__ import print_function
 
 import json
 import platform
-import time
 
 from charms import reactive
-from charms.reactive import helpers
 
 from charmhelpers.core import hookenv
 
