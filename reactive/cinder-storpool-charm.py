@@ -11,8 +11,10 @@ from spcharms import utils as sputils
 
 sp_node = platform.node()
 
+
 def rdebug(s):
     sputils.rdebug(s, prefix='cinder-charm')
+
 
 @reactive.hook('config-changed')
 def configure():
@@ -29,10 +31,12 @@ def configure():
     rdebug('we have the {template} template now'.format(template=template))
     reactive.set_state('cinder-storpool.configured')
 
+
 @reactive.when_not('storage-backend.configure')
 def no_presence():
     rdebug('no Cinder hook yet')
     hookenv.status_set('maintenance', 'waiting for the Cinder relation')
+
 
 @reactive.when('storage-backend.configure')
 @reactive.when_not('storpool-presence.configure')
@@ -40,11 +44,13 @@ def no_presence():
     rdebug('no StorPool presence data yet')
     hookenv.status_set('maintenance', 'waiting for the StorPool block presence data')
 
+
 @reactive.when('storpool-presence.configure')
 @reactive.when_not('cinder-storpool.configured')
 def no_config(hk):
     rdebug('no StorPool configuration yet')
     hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
+
 
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configure')
@@ -79,10 +85,12 @@ def storage_backend_configure(hk):
     rdebug('seemed to work, did it not')
     hookenv.status_set('active', 'the StorPool Cinder backend should be up and running')
 
+
 @reactive.hook('storage-backend-relation-joined')
 def got_cinder_conn():
     rdebug('got a cinder connection')
     reactive.set_state('storage-backend.configure')
+
 
 @reactive.hook('storage-backend-relation-changed')
 def got_cinder_conn():
