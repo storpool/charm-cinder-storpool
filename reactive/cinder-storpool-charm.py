@@ -27,7 +27,7 @@ def configure():
         rdebug('no storpool_template in the configuration yet')
         reactive.remove_state('cinder-storpool.configured')
         return
-    
+
     rdebug('we have the {template} template now'.format(template=template))
     reactive.set_state('cinder-storpool.configured')
 
@@ -78,9 +78,9 @@ def storage_backend_configure(hk):
     for rel_id in rel_ids:
         rdebug('- trying for {rel_id}'.format(rel_id=rel_id))
         hookenv.relation_set(rel_id,
-            backend_name=hookenv.service_name(),
-            subordinate_configuration=json.dumps(data),
-            stateless=True)
+                             backend_name=hookenv.service_name(),
+                             subordinate_configuration=json.dumps(data),
+                             stateless=True)
         rdebug('  - looks like we did it for {rel_id}'.format(rel_id=rel_id))
     rdebug('seemed to work, did it not')
     hookenv.status_set('active', 'the StorPool Cinder backend should be up and running')
