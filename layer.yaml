@@ -1,2 +1,2 @@
 repo: https://github.com/storpool/charm-cinder-storpool.git
-includes: ['layer:basic', 'layer:storpool-helper', 'interface:storpool-presence']
+includes: ['layer:basic', 'layer:storpool-helper', 'interface:storpool-presence', 'interface:cinder-backend']

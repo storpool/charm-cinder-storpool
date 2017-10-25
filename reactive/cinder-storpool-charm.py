@@ -126,23 +126,3 @@ def storage_backend_configure(hk):
     rdebug('seemed to work, did it not')
     hookenv.status_set('active',
                        'the StorPool Cinder backend should be up and running')
-
-
-@reactive.hook('storage-backend-relation-joined')
-def got_cinder_conn():
-    """
-    Make note of the fact that the `storage-backend` hook has been connected to
-    the `cinder` charm.
-    """
-    rdebug('got a cinder connection')
-    reactive.set_state('storage-backend.configure')
-
-
-@reactive.hook('storage-backend-relation-changed')
-def changed_cinder_conn():
-    """
-    Make note of the fact that the `storage-backend` hook has been connected to
-    the `cinder` charm.
-    """
-    rdebug('updated a cinder connection')
-    reactive.set_state('storage-backend.configure')
