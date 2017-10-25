@@ -41,6 +41,9 @@ def configure():
     rdebug('config-changed')
     config = hookenv.config()
 
+    # Make sure that we will try to send the new config to the cinder charm
+    reactive.remove_state('cinder-storpool.ready')
+
     template = config.get('storpool_template', None)
     rdebug('and we do{xnot} have a StorPool template setting'
            .format(xnot=' not' if template is None else ''))
@@ -60,6 +63,7 @@ def no_cinder_presence():
     been connected to the `cinder` charm.
     """
     rdebug('no Cinder hook yet')
+    reactive.remove_state('cinder-storpool.ready')
     hookenv.status_set('maintenance', 'waiting for the Cinder relation')
 
 
@@ -71,6 +75,7 @@ def no_storpool_presence():
     has been connected to the `storpool-block` charm.
     """
     rdebug('no StorPool presence data yet')
+    reactive.remove_state('cinder-storpool.ready')
     hookenv.status_set('maintenance',
                        'waiting for the StorPool block presence data')
 
@@ -83,12 +88,14 @@ def no_config(hk):
     sent the notification that the services are set up on this node.
     """
     rdebug('no StorPool configuration yet')
+    reactive.remove_state('cinder-storpool.ready')
     hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
 
 
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configure')
 @reactive.when('cinder-storpool.configured')
+@reactive.when_not('cinder-storpool.ready')
 def storage_backend_configure(hk):
     """
     When everything has been set up and configured, let the `cinder` charm
@@ -124,5 +131,6 @@ def storage_backend_configure(hk):
                              stateless=True)
         rdebug('  - looks like we did it for {rel_id}'.format(rel_id=rel_id))
     rdebug('seemed to work, did it not')
+    reactive.set_state('cinder-storpool.ready')
     hookenv.status_set('active',
                        'the StorPool Cinder backend should be up and running')
