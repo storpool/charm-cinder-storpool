@@ -1,3 +1,16 @@
+"""
+A Juju charm that uses the StorPool OpenStack integration installed by
+the `storpool-block` charm and sends configuration information for
+the `cinder-volume` service to the `cinder` charm.
+
+Subordinate hooks to master charms:
+- storage-backend: link to the `cinder` charm to send configuration data
+
+Hooks to other charms:
+- storpool-presence: receive a notification from the `storpool-block` charm
+  when the StorPool client and the OpenStack integration have been installed
+  on this node (or container).
+"""
 from __future__ import print_function
 
 import json
@@ -13,11 +26,18 @@ sp_node = platform.node()
 
 
 def rdebug(s):
+    """
+    Pass the diagnostic message string `s` to the central diagnostic logger.
+    """
     sputils.rdebug(s, prefix='cinder-charm')
 
 
 @reactive.hook('config-changed')
 def configure():
+    """
+    Make note of the fact that the "storpool_template" setting has been
+    set (or changed) in the charm configuration.
+    """
     rdebug('config-changed')
     config = hookenv.config()
 
@@ -35,6 +55,10 @@ def configure():
 
 @reactive.when_not('storage-backend.configure')
 def no_cinder_presence():
+    """
+    Set the unit status to "maintenance" until the `storage-backend` hook has
+    been connected to the `cinder` charm.
+    """
     rdebug('no Cinder hook yet')
     hookenv.status_set('maintenance', 'waiting for the Cinder relation')
 
@@ -42,6 +66,10 @@ def no_cinder_presence():
 @reactive.when('storage-backend.configure')
 @reactive.when_not('storpool-presence.configure')
 def no_storpool_presence():
+    """
+    Set the unit status to "maintenance" until the `storpool-presence` hook
+    has been connected to the `storpool-block` charm.
+    """
     rdebug('no StorPool presence data yet')
     hookenv.status_set('maintenance',
                        'waiting for the StorPool block presence data')
@@ -50,6 +78,10 @@ def no_storpool_presence():
 @reactive.when('storpool-presence.configure')
 @reactive.when_not('cinder-storpool.configured')
 def no_config(hk):
+    """
+    Set the unit status to "maintenance" until the `storpool-block` charm has
+    sent the notification that the services are set up on this node.
+    """
     rdebug('no StorPool configuration yet')
     hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
 
@@ -58,6 +90,10 @@ def no_config(hk):
 @reactive.when('storpool-presence.configure')
 @reactive.when('cinder-storpool.configured')
 def storage_backend_configure(hk):
+    """
+    When everything has been set up and configured, let the `cinder` charm
+    have the configuration for the "cinder-storpool" volume backend.
+    """
     rdebug('configuring cinder and stuff')
     service = hookenv.service_name()
     data = {
@@ -94,11 +130,19 @@ def storage_backend_configure(hk):
 
 @reactive.hook('storage-backend-relation-joined')
 def got_cinder_conn():
+    """
+    Make note of the fact that the `storage-backend` hook has been connected to
+    the `cinder` charm.
+    """
     rdebug('got a cinder connection')
     reactive.set_state('storage-backend.configure')
 
 
 @reactive.hook('storage-backend-relation-changed')
 def changed_cinder_conn():
+    """
+    Make note of the fact that the `storage-backend` hook has been connected to
+    the `cinder` charm.
+    """
     rdebug('updated a cinder connection')
     reactive.set_state('storage-backend.configure')
