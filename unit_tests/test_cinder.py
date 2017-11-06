@@ -136,9 +136,9 @@ CONFIG_DATA = {
 CONFIG_JSON = json.dumps(CONFIG_DATA)
 
 
-class TestInventory(unittest.TestCase):
+class TestCinderStorPoolCharm(unittest.TestCase):
     def setUp(self):
-        super(TestInventory, self).setUp()
+        super(TestCinderStorPoolCharm, self).setUp()
         r_state.r_clear_states()
         r_config.r_clear_config()
 
