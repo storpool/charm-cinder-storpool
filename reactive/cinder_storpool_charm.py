@@ -47,7 +47,7 @@ def configure():
     template = config.get('storpool_template', None)
     rdebug('and we do{xnot} have a StorPool template setting'
            .format(xnot=' not' if template is None else ''))
-    if template is None:
+    if template is None or template == '':
         rdebug('no storpool_template in the configuration yet')
         reactive.remove_state('cinder-storpool.configured')
         return

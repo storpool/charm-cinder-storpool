@@ -2,3 +2,4 @@ options:
   storpool_template:
     type: string
     description: The default StorPool template to use for Cinder volumes
+    default:

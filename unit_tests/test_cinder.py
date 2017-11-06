@@ -159,6 +159,12 @@ class TestCinderStorPoolCharm(unittest.TestCase):
         testee.configure()
         self.assertEquals(set(), r_state.r_get_states())
 
+        # An empty string should feel the same
+        r_state.r_set_states(states['ready-and-configured'])
+        r_config.r_set('storpool_template', '', True)
+        testee.configure()
+        self.assertEquals(set(), r_state.r_get_states())
+
     def do_test_config(self):
         """
         Make sure the charm does something when configured.
