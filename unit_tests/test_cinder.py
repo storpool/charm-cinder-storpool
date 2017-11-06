@@ -161,7 +161,7 @@ class TestCinderStorPoolCharm(unittest.TestCase):
 
     def do_test_config(self):
         """
-        Make sure the charm does nothing without configuration.
+        Make sure the charm does something when configured.
         """
         r_config.r_clear_config()
         r_config.r_set('storpool_template', TEMPLATE_NAME, True)
