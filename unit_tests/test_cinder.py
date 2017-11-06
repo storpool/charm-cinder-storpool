@@ -6,7 +6,7 @@ A set of unit tests for the cinder-storpool charm.
 
 import os
 import sys
-import testtools
+import unittest
 
 import json
 import mock
@@ -136,7 +136,7 @@ CONFIG_DATA = {
 CONFIG_JSON = json.dumps(CONFIG_DATA)
 
 
-class TestInventory(testtools.TestCase):
+class TestInventory(unittest.TestCase):
     def setUp(self):
         super(TestInventory, self).setUp()
         r_state.r_clear_states()
