@@ -134,3 +134,11 @@ def storage_backend_configure(hk):
     reactive.set_state('cinder-storpool.ready')
     hookenv.status_set('active',
                        'the StorPool Cinder backend should be up and running')
+
+
+@reactive.hook('upgrade-charm')
+def upgrade():
+    """
+    Trigger some actions...
+    """
+    reactive.remove_state('cinder-storpool.ready')
