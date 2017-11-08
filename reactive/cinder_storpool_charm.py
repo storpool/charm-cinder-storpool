@@ -33,6 +33,7 @@ def rdebug(s):
 
 
 @reactive.hook('config-changed')
+@reactive.when_not('cinder-storpool-charm.stopped')
 def configure():
     """
     Make note of the fact that the "storpool_template" setting has been
@@ -57,6 +58,7 @@ def configure():
 
 
 @reactive.when_not('storage-backend.configure')
+@reactive.when_not('cinder-storpool-charm.stopped')
 def no_cinder_presence():
     """
     Set the unit status to "maintenance" until the `storage-backend` hook has
@@ -69,6 +71,7 @@ def no_cinder_presence():
 
 @reactive.when('storage-backend.configure')
 @reactive.when_not('storpool-presence.configure')
+@reactive.when_not('cinder-storpool-charm.stopped')
 def no_storpool_presence():
     """
     Set the unit status to "maintenance" until the `storpool-presence` hook
@@ -82,6 +85,7 @@ def no_storpool_presence():
 
 @reactive.when('storpool-presence.configure')
 @reactive.when_not('cinder-storpool.configured')
+@reactive.when_not('cinder-storpool-charm.stopped')
 def no_config(hk):
     """
     Set the unit status to "maintenance" until the `storpool-block` charm has
@@ -95,7 +99,9 @@ def no_config(hk):
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configure')
 @reactive.when('cinder-storpool.configured')
+@reactive.when('storpool-osi.installed')
 @reactive.when_not('cinder-storpool.ready')
+@reactive.when_not('cinder-storpool-charm.stopped')
 def storage_backend_configure(hk):
     """
     When everything has been set up and configured, let the `cinder` charm
@@ -137,8 +143,26 @@ def storage_backend_configure(hk):
 
 
 @reactive.hook('upgrade-charm')
+@reactive.when_not('cinder-storpool-charm.stopped')
 def upgrade():
     """
     Trigger some actions...
     """
     reactive.remove_state('cinder-storpool.ready')
+
+
+@reactive.hook('stop')
+def stop_and_propagate():
+    """
+    Propagate a `stop` action to the lower layers.
+
+    Also set the "cinder-storpool-charm.stopped" state so that no further
+    presence or status updates are sent to other units or charms.
+    """
+    rdebug('a stop event was received')
+
+    rdebug('letting storpool-openstack-integration know')
+    reactive.set_state('storpool-osi.stop')
+
+    rdebug('done here, it seems')
+    reactive.set_state('cinder-storpool-charm.stopped')
