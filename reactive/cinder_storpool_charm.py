@@ -20,9 +20,23 @@ from charms import reactive
 
 from charmhelpers.core import hookenv
 
+from spcharms import states as spstates
 from spcharms import utils as sputils
 
 sp_node = platform.node()
+
+STATES_REDO = {
+    'set': ['cinder-storpool.configure'],
+    'unset': [
+        'cinder-storpool.configured',
+        'cinder-storpool.ready'
+    ],
+}
+
+STATES = {
+    'config-changed': STATES_REDO,
+    'upgrade-charm': STATES_REDO,
+}
 
 
 def rdebug(s):
@@ -32,7 +46,24 @@ def rdebug(s):
     sputils.rdebug(s, prefix='cinder-charm')
 
 
+@reactive.hook('install')
+def install():
+    """
+    Register our event handlers.
+    """
+    spstates.register('cinder-storpool-charm', STATES)
+
+
 @reactive.hook('config-changed')
+def config_changed():
+    """
+    Fire all the config-changed handlers.
+    """
+    spstates.handle_event('config-changed')
+
+
+@reactive.when('cinder-storpool.configure')
+@reactive.when_not('cinder-storpool.configured')
 @reactive.when_not('cinder-storpool-charm.stopped')
 def configure():
     """
@@ -40,17 +71,14 @@ def configure():
     set (or changed) in the charm configuration.
     """
     rdebug('config-changed')
+    reactive.remove_state('cinder-storpool.configure')
     config = hookenv.config()
-
-    # Make sure that we will try to send the new config to the cinder charm
-    reactive.remove_state('cinder-storpool.ready')
 
     template = config.get('storpool_template', None)
     rdebug('and we do{xnot} have a StorPool template setting'
            .format(xnot=' not' if template is None else ''))
     if template is None or template == '':
         rdebug('no storpool_template in the configuration yet')
-        reactive.remove_state('cinder-storpool.configured')
         return
 
     rdebug('we have the {template} template now'.format(template=template))
@@ -148,7 +176,7 @@ def upgrade():
     """
     Trigger some actions...
     """
-    reactive.remove_state('cinder-storpool.ready')
+    spstates.handle_event('upgrade-charm')
 
 
 @reactive.hook('stop')
