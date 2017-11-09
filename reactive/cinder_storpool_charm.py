@@ -20,6 +20,7 @@ from charms import reactive
 
 from charmhelpers.core import hookenv
 
+from spcharms import config as spconfig
 from spcharms import states as spstates
 from spcharms import utils as sputils
 
@@ -98,7 +99,7 @@ def no_cinder_presence():
 
 
 @reactive.when('storage-backend.configure')
-@reactive.when_not('storpool-presence.configure')
+@reactive.when_not('storpool-presence.configured')
 @reactive.when_not('cinder-storpool-charm.stopped')
 def no_storpool_presence():
     """
@@ -111,7 +112,7 @@ def no_storpool_presence():
                        'waiting for the StorPool block presence data')
 
 
-@reactive.when('storpool-presence.configure')
+@reactive.when('storpool-presence.configured')
 @reactive.when_not('cinder-storpool.configured')
 @reactive.when_not('cinder-storpool-charm.stopped')
 def no_config(hk):
@@ -124,8 +125,22 @@ def no_config(hk):
     hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
 
 
-@reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configure')
+def fetch_config(hk):
+    """
+    Fetch the StorPool charm configuration sent over by storpool-block.
+    """
+    rdebug('fetch_config() invoked, hk is {hk}'.format(hk=hk))
+    reactive.remove_state('storpool-presence.configure')
+    conv = hk.conversation()
+    cfg = conv.get_local('storpool_presence')
+    spconfig.set_meta_config(cfg)
+    rdebug('set the meta config, let us hope that it works')
+    reactive.set_state('storpool-presence.configured')
+
+
+@reactive.when('storage-backend.configure')
+@reactive.when('storpool-presence.configured')
 @reactive.when('cinder-storpool.configured')
 @reactive.when('storpool-osi.installed')
 @reactive.when_not('cinder-storpool.ready')

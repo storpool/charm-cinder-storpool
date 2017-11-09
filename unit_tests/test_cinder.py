@@ -21,6 +21,8 @@ lib_path = os.path.realpath('unit_tests/lib')
 if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
+from spcharms import config as spconfig
+
 
 class MockReactive(object):
     def r_clear_states(self):
@@ -92,9 +94,11 @@ class MockConfig(object):
 
 r_state = MockReactive()
 r_config = MockConfig()
+r_env_config = MockConfig()
 
 # Do not give hookenv.config() a chance to run at all
-hookenv.config = lambda: r_config
+hookenv.config = lambda: r_env_config
+spconfig.m = lambda: r_config
 
 
 def mock_reactive_states(f):
@@ -141,27 +145,22 @@ class TestCinderStorPoolCharm(unittest.TestCase):
         super(TestCinderStorPoolCharm, self).setUp()
         r_state.r_clear_states()
         r_config.r_clear_config()
+        r_env_config.r_clear_config()
 
     def do_test_no_config(self):
         """
         Make sure the charm does nothing without configuration.
         """
 
-        states = {
-            'ready-and-configured': set([
-                'cinder-storpool.ready',
-                'cinder-storpool.configured',
-            ]),
-        }
-
         r_config.r_clear_config()
-        r_state.r_set_states(states['ready-and-configured'])
+        r_env_config.r_clear_config()
+        r_state.r_clear_states()
         testee.configure()
         self.assertEquals(set(), r_state.r_get_states())
 
         # An empty string should feel the same
-        r_state.r_set_states(states['ready-and-configured'])
-        r_config.r_set('storpool_template', '', True)
+        r_state.r_clear_states()
+        r_env_config.r_set('storpool_template', '', True)
         testee.configure()
         self.assertEquals(set(), r_state.r_get_states())
 
@@ -170,8 +169,9 @@ class TestCinderStorPoolCharm(unittest.TestCase):
         Make sure the charm does something when configured.
         """
         r_config.r_clear_config()
-        r_config.r_set('storpool_template', TEMPLATE_NAME, True)
-        r_state.r_set_states(set(['cinder-storpool.ready']))
+        r_env_config.r_clear_config()
+        r_env_config.r_set('storpool_template', TEMPLATE_NAME, True)
+        r_state.r_clear_states()
         testee.configure()
         self.assertEquals(set(['cinder-storpool.configured']),
                           r_state.r_get_states())
@@ -181,7 +181,8 @@ class TestCinderStorPoolCharm(unittest.TestCase):
         Make sure the charm sends the correct info to Cinder.
         """
         r_config.r_clear_config()
-        r_config.r_set('storpool_template', TEMPLATE_NAME, False)
+        r_env_config.r_clear_config()
+        r_env_config.r_set('storpool_template', TEMPLATE_NAME, False)
         r_state.r_set_states(set(['cinder-storpool.configured']))
 
         h_sname.return_value = SERVICE_NAME
