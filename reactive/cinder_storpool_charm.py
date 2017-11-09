@@ -137,6 +137,8 @@ def fetch_config(hk):
     spconfig.set_meta_config(cfg)
     rdebug('set the meta config, let us hope that it works')
     reactive.set_state('storpool-presence.configured')
+    rdebug('also about to trigger a config-changed run')
+    spstates.handle_event('config-changed')
 
 
 @reactive.when('storage-backend.configure')
