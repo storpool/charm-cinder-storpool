@@ -115,7 +115,7 @@ def no_storpool_presence():
 @reactive.when('storpool-presence.configured')
 @reactive.when_not('cinder-storpool.configured')
 @reactive.when_not('cinder-storpool-charm.stopped')
-def no_config(hk):
+def no_config(*args, **kwargs):
     """
     Set the unit status to "maintenance" until the `storpool-block` charm has
     sent the notification that the services are set up on this node.
@@ -145,7 +145,7 @@ def fetch_config(hk):
 @reactive.when('storpool-osi.installed')
 @reactive.when_not('cinder-storpool.ready')
 @reactive.when_not('cinder-storpool-charm.stopped')
-def storage_backend_configure(hk):
+def storage_backend_configure(*args, **kwargs):
     """
     When everything has been set up and configured, let the `cinder` charm
     have the configuration for the "cinder-storpool" volume backend.
