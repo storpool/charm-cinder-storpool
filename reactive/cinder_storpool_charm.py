@@ -14,6 +14,7 @@ Hooks to other charms:
 from __future__ import print_function
 
 import json
+import os
 import platform
 
 from charms import reactive
@@ -137,6 +138,24 @@ def fetch_config(hk):
     spconfig.set_meta_config(cfg)
     rdebug('set the meta config, let us hope that it works')
     reactive.set_state('storpool-presence.configured')
+
+    rdebug('now let us try to figure out our ID')
+    parent_id = sputils.get_parent_node()
+    rdebug('- got parent id {pid}'.format(pid=parent_id))
+    our_id = cfg.get('presence', {}).get(parent_id, None)
+    if our_id is None:
+        rdebug('- no ourid in the StorPool presence data yet')
+    else:
+        rdebug('- got ourid {oid}'.format(oid=our_id))
+        if not os.path.exists('/etc/storpool.conf.d'):
+            os.mkdir('/etc/storpool.conf.d', mode=0o755)
+        with open('/etc/storpool.conf.d/cinder-sub-ourid.conf',
+                  mode='wt') as spconf:
+            rdebug('- writing it to {name}'.format(name=spconf.name))
+            print('[{name}]\nSP_OURID={oid}'
+                  .format(name=platform.node(), oid=our_id),
+                  file=spconf)
+
     rdebug('also about to trigger a config-changed run')
     spstates.handle_event('config-changed')
 
