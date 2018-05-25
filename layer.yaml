@@ -1,3 +1,3 @@
 repo: https://github.com/storpool/charm-cinder-storpool.git
-includes: ['layer:basic', 'layer:storpool-repo-add', 'layer:storpool-config', 'layer:storpool-openstack-integration', 'interface:storpool-presence', 'interface:cinder-backend']
+includes: ['layer:basic', 'layer:storpool-config', 'layer:storpool-openstack-integration', 'interface:storpool-presence', 'interface:cinder-backend']
 exclude: ['unit_tests']
