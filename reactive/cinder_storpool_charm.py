@@ -22,23 +22,13 @@ from charms import reactive
 from charmhelpers.core import hookenv
 
 from spcharms import config as spconfig
-from spcharms import states as spstates
+from spcharms import error as sperror
 from spcharms import utils as sputils
 
+from spcharms.run import storpool_openstack_integration as run_osi
+
+
 sp_node = platform.node()
-
-STATES_REDO = {
-    'set': ['cinder-storpool.configure'],
-    'unset': [
-        'cinder-storpool.configured',
-        'cinder-storpool.ready'
-    ],
-}
-
-STATES = {
-    'config-changed': STATES_REDO,
-    'upgrade-charm': STATES_REDO,
-}
 
 
 def rdebug(s):
@@ -51,17 +41,17 @@ def rdebug(s):
 @reactive.hook('install')
 def install():
     """
-    Register our event handlers.
+    Try to (re-)install everything.
     """
-    spstates.register('cinder-storpool-charm', STATES)
+    reactive.set_state('cinder-storpool.run')
 
 
 @reactive.hook('config-changed')
 def config_changed():
     """
-    Fire all the config-changed handlers.
+    Try to (re-)install everything.
     """
-    spstates.handle_event('config-changed')
+    reactive.set_state('cinder-storpool.run')
 
 
 @reactive.when('cinder-storpool.configure')
@@ -157,13 +147,12 @@ def fetch_config(hk):
                   file=spconf)
 
     rdebug('also about to trigger a config-changed run')
-    spstates.handle_event('config-changed')
+    reactive.set_state('cinder-storpool.run')
 
 
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.configured')
 @reactive.when('cinder-storpool.configured')
-@reactive.when('storpool-osi.installed')
 @reactive.when_not('cinder-storpool.ready')
 @reactive.when_not('cinder-storpool-charm.stopped')
 def storage_backend_configure(*args, **kwargs):
@@ -210,9 +199,36 @@ def storage_backend_configure(*args, **kwargs):
 @reactive.when_not('cinder-storpool-charm.stopped')
 def upgrade():
     """
-    Trigger some actions...
+    Try to (re-)install everything.
     """
-    spstates.handle_event('upgrade-charm')
+    reactive.set_state('cinder-storpool.run')
+
+
+@reactive.when('cinder-storpool.run')
+@reactive.when('storpool-presence.configured')
+def run():
+    reactive.remove_state('cinder-storpool.run')
+    reactive.remove_state('cinder-storpool.configured')
+    reactive.remove_state('cinder-storpool.ready')
+    try:
+        rdebug('Run, StorPool OpenStack integration, run!')
+        run_osi.run()
+        rdebug('It seems that the storpool-osi setup has run its course')
+
+        rdebug('Triggering the hooks configuration check')
+        reactive.set_state('cinder-storpool.configure')
+    except sperror.StorPoolNoConfigException as e_cfg:
+        hookenv.log('StorPool: missing configuration: {m}'
+                    .format(m=', '.join(e_cfg.missing)),
+                    hookenv.INFO)
+    except sperror.StorPoolPackageInstallException as e_pkg:
+        hookenv.log('StorPool: could not install the {names} packages: {e}'
+                    .format(names=' '.join(e_pkg.names), e=e_pkg.cause),
+                    hookenv.ERROR)
+    except sperror.StorPoolNoCGroupsException as e_cfg:
+        hookenv.log('StorPool: {e}'.format(e=e_cfg), hookenv.ERROR)
+    except sperror.StorPoolException as e:
+        hookenv.log('StorPool installation problem: {e}'.format(e=e))
 
 
 @reactive.hook('stop')
@@ -226,7 +242,7 @@ def stop_and_propagate():
     rdebug('a stop event was received')
 
     rdebug('letting storpool-openstack-integration know')
-    reactive.set_state('storpool-osi.stop')
+    run_osi.stop()
 
     rdebug('done here, it seems')
     reactive.set_state('cinder-storpool-charm.stopped')
