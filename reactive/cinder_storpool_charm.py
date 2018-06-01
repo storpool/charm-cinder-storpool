@@ -210,6 +210,7 @@ def run():
     reactive.remove_state('cinder-storpool.run')
     reactive.remove_state('cinder-storpool.configured')
     reactive.remove_state('cinder-storpool.ready')
+    failed = False
     try:
         rdebug('Run, StorPool OpenStack integration, run!')
         run_osi.run()
@@ -225,10 +226,16 @@ def run():
         hookenv.log('StorPool: could not install the {names} packages: {e}'
                     .format(names=' '.join(e_pkg.names), e=e_pkg.cause),
                     hookenv.ERROR)
+        failed = True
     except sperror.StorPoolNoCGroupsException as e_cfg:
         hookenv.log('StorPool: {e}'.format(e=e_cfg), hookenv.ERROR)
+        failed = True
     except sperror.StorPoolException as e:
         hookenv.log('StorPool installation problem: {e}'.format(e=e))
+        failed = True
+
+    if failed:
+        exit(42)
 
 
 @reactive.hook('stop')
