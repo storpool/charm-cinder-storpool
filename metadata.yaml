@@ -9,6 +9,9 @@ tags:
   - openstack
   - storage
 subordinate: true
+peers:
+  cinder-p:
+    interface: storpool-service
 provides:
   storage-backend:
     interface: cinder-backend

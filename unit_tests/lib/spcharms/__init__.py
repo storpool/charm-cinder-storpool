@@ -14,6 +14,7 @@ error.StorPoolPackageInstallException = FunnyException
 error.StorPoolNoCGroupsException = FunnyException
 error.StorPoolException = FunnyException
 repo = mock.Mock()
+service_hook = mock.Mock()
 states = mock.Mock()
 status = mock.Mock()
 utils = mock.Mock()

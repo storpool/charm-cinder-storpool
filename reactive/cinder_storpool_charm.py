@@ -23,9 +23,13 @@ from charmhelpers.core import hookenv
 
 from spcharms import config as spconfig
 from spcharms import error as sperror
+from spcharms import service_hook
 from spcharms import utils as sputils
 
 from spcharms.run import storpool_openstack_integration as run_osi
+
+
+RELATIONS = ['cinder-p', 'storpool-presence']
 
 
 sp_node = platform.node()
@@ -116,38 +120,126 @@ def no_config(*args, **kwargs):
     hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
 
 
-@reactive.when('storpool-presence.configure')
-def fetch_config(hk):
-    """
-    Fetch the StorPool charm configuration sent over by storpool-block.
-    """
-    rdebug('fetch_config() invoked, hk is {hk}'.format(hk=hk))
-    reactive.remove_state('storpool-presence.configure')
-    conv = hk.conversation()
-    cfg = conv.get_local('storpool_presence')
-    spconfig.set_meta_config(cfg)
-    rdebug('set the meta config, let us hope that it works')
-    reactive.set_state('storpool-presence.configured')
+@reactive.when('storage-backend.configure')
+@reactive.when('storpool-presence.notify')
+def block_changed(_):
+    try_announce()
 
-    rdebug('now let us try to figure out our ID')
-    parent_id = sputils.get_parent_node()
-    rdebug('- got parent id {pid}'.format(pid=parent_id))
-    our_id = cfg.get('presence', {}).get(parent_id, None)
+
+@reactive.when('storage-backend.configure')
+@reactive.when('cinder-p.notify')
+def cinder_changed(_):
+    try_announce()
+
+
+def try_announce():
+    try:
+        announce_presence()
+        # Only reset the flag afterwards so that if anything
+        # goes wrong we can retry this later
+        # It should be safe to reset both states at once; we always
+        # fetch data on both hooks, so we can't miss anything.
+        reactive.remove_state('cinder-p.notify')
+        reactive.remove_state('cinder-p.notify-joined')
+        reactive.remove_state('storpool-presence.notify')
+        reactive.remove_state('storpool-presence.notify-joined')
+    except Exception as e:
+        hookenv.log('Could not parse the presence data: {e}'.format(e=e))
+        exit(42)
+
+
+def build_presence(current):
+    current['hostname'] = platform.node()
+
+
+def deconfigure():
+    if reactive.is_state('storpool-presence.configured'):
+        rdebug('  - clearing any cached config state')
+        spconfig.unset_meta_config()
+        spconfig.unset_meta_generation()
+        spconfig.unset_our_id()
+        reactive.remove_state('storpool-presence.configured')
+
+
+def announce_presence(force=False):
+    data = service_hook.fetch_presence(RELATIONS)
+    rdebug('processing presence data at generation {gen}'
+           .format(gen=data['generation']),
+           cond='announce')
+
+    rdebug('state: {d}'.format(d=list(map(lambda k: '{k}={m}'
+                                                    .format(k=k,
+                                                            m=data['nodes'][k]
+                                                            .get('id')),
+                                          sorted(data['nodes'].keys())))),
+           cond='announce')
+
+    announce = force
+    cinder_joined = reactive.is_state('cinder-p.notify-joined')
+    block_joined = reactive.is_state('storpool-presence.notify-joined')
+    if cinder_joined or block_joined:
+        announce = True
+
+    # Look for a block unit's config info.
+    cfg = None
+    cfg_gen = -1
+    for node, ndata in data['nodes'].items():
+        if not node.startswith('block:'):
+            continue
+        ncfg = ndata.get('config')
+        if ncfg is None:
+            continue
+        if cfg is None:
+            cfg = ncfg
+            cfg_gen = ndata['generation']
+        else:
+            cfg = None
+            break
+
+    parent_id = 'block:' + sputils.get_parent_node()
+    our_id = data['nodes'].get(parent_id, {}).get('id')
     if our_id is None:
-        rdebug('- no ourid in the StorPool presence data yet')
+        rdebug('no ourid in the StorPool presence data yet', cond='announce')
+        deconfigure()
     else:
-        rdebug('- got ourid {oid}'.format(oid=our_id))
+        rdebug('got ourid {oid}'.format(oid=our_id), cond='announce')
         if not os.path.exists('/etc/storpool.conf.d'):
             os.mkdir('/etc/storpool.conf.d', mode=0o755)
         with open('/etc/storpool.conf.d/cinder-sub-ourid.conf',
                   mode='wt') as spconf:
-            rdebug('- writing it to {name}'.format(name=spconf.name))
             print('[{name}]\nSP_OURID={oid}'
                   .format(name=platform.node(), oid=our_id),
                   file=spconf)
+        if cfg is not None:
+            # ...then, finally, process that config!
+            spconfig.set_meta_config(cfg)
+            reactive.set_state('storpool-presence.configured')
+            last_gen = spconfig.get_meta_generation()
+            if last_gen is None or int(cfg_gen) > int(last_gen):
+                announce = True
+                spconfig.set_meta_generation(cfg_gen)
+                reactive.set_state('cinder-storpool.run')
+        else:
+            deconfigure()
 
-    rdebug('also about to trigger a config-changed run')
-    reactive.set_state('cinder-storpool.run')
+    generation = data['generation']
+    if int(generation) < 0:
+        generation = 0
+    if announce:
+        mach_id = 'cinder:' + sputils.get_machine_id()
+        data = {
+            'generation': generation,
+
+            'nodes': {
+                mach_id: {
+                    'generation': generation,
+                    'hostname': sputils.get_machine_id()
+                },
+            },
+        }
+        rdebug('announcing {data}'.format(data=data),
+               cond='announce')
+        service_hook.send_presence(data, RELATIONS)
 
 
 @reactive.when('storage-backend.configure')
@@ -179,17 +271,13 @@ def storage_backend_configure(*args, **kwargs):
         },
     }
     rdebug('configure setting some data: {data}'.format(data=data))
-    rdebug('now looking for our Cinder relation...')
     rel_ids = hookenv.relation_ids('storage-backend')
-    rdebug('got rel_ids {rel_ids}'.format(rel_ids=rel_ids))
     for rel_id in rel_ids:
-        rdebug('- trying for {rel_id}'.format(rel_id=rel_id))
         hookenv.relation_set(rel_id,
                              backend_name=hookenv.service_name(),
                              subordinate_configuration=json.dumps(data),
                              stateless=True)
-        rdebug('  - looks like we did it for {rel_id}'.format(rel_id=rel_id))
-    rdebug('seemed to work, did it not')
+        rdebug('- sent it along {rel}'.format(rel=rel_id))
     reactive.set_state('cinder-storpool.ready')
     hookenv.status_set('active',
                        'the StorPool Cinder backend should be up and running')
