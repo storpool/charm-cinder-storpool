@@ -204,6 +204,15 @@ def upgrade():
     reactive.set_state('cinder-storpool.run')
 
 
+@reactive.hook('start')
+@reactive.when_not('cinder-storpool-charm.stopped')
+def start_service():
+    """
+    Try to (re-)install everything.
+    """
+    reactive.set_state('cinder-storpool.run')
+
+
 @reactive.when('cinder-storpool.run')
 @reactive.when('storpool-presence.configured')
 def run():
