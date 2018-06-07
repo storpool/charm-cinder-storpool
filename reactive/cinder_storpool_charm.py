@@ -301,9 +301,39 @@ def start_service():
     reactive.set_state('cinder-storpool.run')
 
 
+@reactive.when('cinder-storpool.sp-run')
+@reactive.when_not('storpool-presence.configured')
+def sp_run_no_config():
+    reactive.remove_state('cinder-storpool.sp-run')
+    s = 'No storpool-block unit active on our node yet'
+    hookenv.log(s, hookenv.ERROR)
+    hookenv.action_fail(s)
+
+
+@reactive.when('cinder-storpool.sp-run')
+@reactive.when('storpool-presence.configured')
+def sp_run():
+    # Yes, removing it at once, not after the fact.  If something
+    # goes wrong, the action may be reissued.
+    reactive.remove_state('cinder-storpool.sp-run')
+    try:
+        run(reraise=True)
+    except BaseException as e:
+        s = 'Could not rerun the StorPool configuration: {e}'.format(e=e)
+        hookenv.log(s, hookenv.ERROR)
+        hookenv.action_fail(s)
+
+
 @reactive.when('cinder-storpool.run')
 @reactive.when('storpool-presence.configured')
-def run():
+def run(reraise=False):
+    def reraise_or_fail():
+        if reraise:
+            raise
+        else:
+            nonlocal failed
+            failed = True
+
     reactive.remove_state('cinder-storpool.run')
     reactive.remove_state('cinder-storpool.configured')
     reactive.remove_state('cinder-storpool.ready')
@@ -323,13 +353,13 @@ def run():
         hookenv.log('StorPool: could not install the {names} packages: {e}'
                     .format(names=' '.join(e_pkg.names), e=e_pkg.cause),
                     hookenv.ERROR)
-        failed = True
+        reraise_or_fail()
     except sperror.StorPoolNoCGroupsException as e_cfg:
         hookenv.log('StorPool: {e}'.format(e=e_cfg), hookenv.ERROR)
-        failed = True
+        reraise_or_fail()
     except sperror.StorPoolException as e:
         hookenv.log('StorPool installation problem: {e}'.format(e=e))
-        failed = True
+        reraise_or_fail()
 
     if failed:
         exit(42)
