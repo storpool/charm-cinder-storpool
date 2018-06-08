@@ -48,6 +48,7 @@ def install():
     Try to (re-)install everything.
     """
     reactive.set_state('cinder-storpool.run')
+    update_status()
 
 
 @reactive.hook('config-changed')
@@ -56,6 +57,7 @@ def config_changed():
     Try to (re-)install everything.
     """
     reactive.set_state('cinder-storpool.run')
+    update_status()
 
 
 @reactive.when('cinder-storpool.configure')
@@ -79,57 +81,21 @@ def configure():
 
     rdebug('we have the {template} template now'.format(template=template))
     reactive.set_state('cinder-storpool.configured')
-
-
-@reactive.when_not('storage-backend.configure')
-@reactive.when_not('cinder-storpool-charm.stopped')
-def no_cinder_presence():
-    """
-    Set the unit status to "maintenance" until the `storage-backend` hook has
-    been connected to the `cinder` charm.
-    """
-    rdebug('no Cinder hook yet')
-    reactive.remove_state('cinder-storpool.ready')
-    hookenv.status_set('maintenance', 'waiting for the Cinder relation')
-
-
-@reactive.when('storage-backend.configure')
-@reactive.when_not('storpool-presence.configured')
-@reactive.when_not('cinder-storpool-charm.stopped')
-def no_storpool_presence():
-    """
-    Set the unit status to "maintenance" until the `storpool-presence` hook
-    has been connected to the `storpool-block` charm.
-    """
-    rdebug('no StorPool presence data yet')
-    reactive.remove_state('cinder-storpool.ready')
-    hookenv.status_set('maintenance',
-                       'waiting for the StorPool block presence data')
-
-
-@reactive.when('storpool-presence.configured')
-@reactive.when_not('cinder-storpool.configured')
-@reactive.when_not('cinder-storpool-charm.stopped')
-def no_config(*args, **kwargs):
-    """
-    Set the unit status to "maintenance" until the `storpool-block` charm has
-    sent the notification that the services are set up on this node.
-    """
-    rdebug('no StorPool configuration yet')
-    reactive.remove_state('cinder-storpool.ready')
-    hookenv.status_set('maintenance', 'waiting for the StorPool configuration')
+    update_status()
 
 
 @reactive.when('storage-backend.configure')
 @reactive.when('storpool-presence.notify')
 def block_changed(_):
     try_announce()
+    update_status()
 
 
 @reactive.when('storage-backend.configure')
 @reactive.when('cinder-p.notify')
 def cinder_changed(_):
     try_announce()
+    update_status()
 
 
 def try_announce():
@@ -279,8 +245,7 @@ def storage_backend_configure(*args, **kwargs):
                              stateless=True)
         rdebug('- sent it along {rel}'.format(rel=rel_id))
     reactive.set_state('cinder-storpool.ready')
-    hookenv.status_set('active',
-                       'the StorPool Cinder backend should be up and running')
+    update_status()
 
 
 @reactive.hook('upgrade-charm')
@@ -290,6 +255,7 @@ def upgrade():
     Try to (re-)install everything.
     """
     reactive.set_state('cinder-storpool.run')
+    update_status()
 
 
 @reactive.hook('start')
@@ -299,6 +265,51 @@ def start_service():
     Try to (re-)install everything.
     """
     reactive.set_state('cinder-storpool.run')
+    update_status()
+
+
+def get_status():
+    status = {
+        'cinder-hook': reactive.is_state('storage-backend.configure'),
+        'node': sputils.get_machine_id(),
+        'parent-node': sputils.get_parent_node(),
+        'charm-config': hookenv.config(),
+
+        'ready': False,
+    }
+
+    try:
+        c = spconfig.m()
+        if isinstance(c, spconfig.QuasiConfig):
+            c = c.get_dict()
+        if c is None or isinstance(c, dict):
+            status['block-config'] = c
+        else:
+            hookenv.log('spconfig.m() did not return a dictionary, {t} instead'
+                        .format(t=type(c).__name__))
+    except sperror.StorPoolNoConfigException:
+        status['block-config'] = None
+
+    status['presence'] = service_hook.fetch_presence(RELATIONS)
+    parent_name = 'block:' + status['parent-node']
+
+    template = status['charm-config'].get('storpool_template')
+    if not status['cinder-hook']:
+        msg = 'No Cinder hook yet'
+    elif parent_name not in status['presence']['nodes']:
+        msg = 'No presence data from our parent node'
+    elif status['block-config'] is None:
+        msg = 'No configuration received from the storpool-block charm'
+    elif template is None or template == '':
+        msg = 'No "storpool_template" in the charm config'
+    elif not reactive.is_state('cinder-storpool.ready'):
+        msg = 'Something went wrong, please look at the unit log'
+    else:
+        msg = 'The StorPool Cinder backend should be up and running'
+        status['ready'] = True
+    status['message'] = msg
+
+    return status
 
 
 @reactive.when('cinder-storpool.sp-run')
@@ -324,6 +335,22 @@ def sp_run():
         hookenv.action_fail(s)
 
 
+@reactive.when('cinder-storpool.sp-status')
+def sp_status():
+    # Yes, removing it at once, not after the fact.  If something
+    # goes wrong, the action may be reissued.
+    reactive.remove_state('cinder-storpool.sp-status')
+    try:
+        st = get_status()
+        hookenv.log('Reporting status ready: {rd}, msg: "{msg}", status: {st}'
+                    .format(rd=st.get('ready'), msg=st.get('message'), st=st))
+        hookenv.action_set({'status': json.dumps(st)})
+    except BaseException as e:
+        s = 'Could not fetch the StorPool Cinder charm status: {e}'.format(e=e)
+        hookenv.log(s, hookenv.ERROR)
+        hookenv.action_fail(s)
+
+
 @reactive.when('cinder-storpool.run')
 @reactive.when('storpool-presence.configured')
 def run(reraise=False):
@@ -345,6 +372,7 @@ def run(reraise=False):
 
         rdebug('Triggering the hooks configuration check')
         reactive.set_state('cinder-storpool.configure')
+        update_status()
     except sperror.StorPoolNoConfigException as e_cfg:
         hookenv.log('StorPool: missing configuration: {m}'
                     .format(m=', '.join(e_cfg.missing)),
@@ -363,6 +391,20 @@ def run(reraise=False):
 
     if failed:
         exit(42)
+
+
+@reactive.hook('update-status')
+def update_status():
+    try:
+        status = get_status()
+        if status.get('ready'):
+            hookenv.status_set('active', status['message'])
+        else:
+            hookenv.status_set('maintenance', status['message'])
+    except BaseException as e:
+        msg = 'Examining the status: {e}'.format(e=e)
+        hookenv.log(msg, hookenv.ERROR)
+        hookenv.status_set('maintenance', msg)
 
 
 @reactive.hook('stop')
