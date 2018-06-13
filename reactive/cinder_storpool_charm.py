@@ -31,11 +31,11 @@ from spcharms.run import storpool_openstack_integration as run_osi
 sp_node = platform.node()
 
 
-def rdebug(s):
+def rdebug(s, cond=None):
     """
     Pass the diagnostic message string `s` to the central diagnostic logger.
     """
-    sputils.rdebug(s, prefix='cinder-charm')
+    sputils.rdebug(s, prefix='cinder-charm', cond=cond)
 
 
 @reactive.hook('install')
