@@ -23,6 +23,7 @@ from charmhelpers.core import hookenv
 
 from spcharms import config as spconfig
 from spcharms import error as sperror
+from spcharms import osi
 from spcharms import service_hook
 from spcharms import utils as sputils
 
@@ -294,6 +295,7 @@ def get_status():
     parent_name = 'block:' + status['parent-node']
 
     template = status['charm-config'].get('storpool_template')
+    msg = None
     if not status['cinder-hook']:
         msg = 'No Cinder hook yet'
     elif parent_name not in status['presence']['nodes']:
@@ -304,11 +306,34 @@ def get_status():
         msg = 'No "storpool_template" in the charm config'
     elif not reactive.is_state('cinder-storpool.ready'):
         msg = 'Something went wrong, please look at the unit log'
-    else:
-        msg = 'The StorPool Cinder backend should be up and running'
-        status['ready'] = True
-    status['message'] = msg
+    if msg is not None:
+        status['message'] = msg
+        return status
 
+    found = False
+    status['proc'] = {}
+    for cmd in ('cinder-volume', 'nova-compute'):
+        d = osi.check_spopenstack_processes(cmd)
+        if d:
+            found = True
+        status['proc'][cmd] = d
+        bad = sorted(filter(lambda pid: not d[pid], d.keys()))
+        if bad:
+            status['message'] = 'No spopenstack group: {pid}'.format(pid=bad)
+            return status
+
+    if found:
+        dirname = '/var/spool/openstack-storpool'
+        if not os.path.isdir(dirname):
+            status['message'] = 'No {d} directory'.format(d=dirname)
+            return status
+        st = os.stat(dirname)
+        if not st.st_mode & 0o0020:
+            status['message'] = '{d} not group-writable'.format(d=dirname)
+            return status
+
+    status['message'] = 'The StorPool Cinder backend should be up and running'
+    status['ready'] = True
     return status
 
 

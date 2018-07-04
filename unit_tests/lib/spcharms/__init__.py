@@ -13,6 +13,7 @@ error.StorPoolNoConfigException = FunnyException
 error.StorPoolPackageInstallException = FunnyException
 error.StorPoolNoCGroupsException = FunnyException
 error.StorPoolException = FunnyException
+osi = mock.Mock()
 repo = mock.Mock()
 service_hook = mock.Mock()
 states = mock.Mock()
