@@ -5,6 +5,9 @@ description: |
   This charm waits for the "storpool-block" charm to report readiness on
   the current node and then provides the "cinder" charm with
   the configuration for the "cinder-storpool" backend.
+series:
+  - xenial
+  - bionic
 tags:
   - openstack
   - storage
