@@ -61,6 +61,13 @@ def config_changed():
     update_status()
 
 
+@reactive.hook('post-series-upgrade')
+def post_series_upgrade():
+    """ Try to upgrade everything. """
+    reactive.set_state('cinder-storpool.run')
+    update_status()
+
+
 @reactive.when('cinder-storpool.configure')
 @reactive.when_not('cinder-storpool.configured')
 @reactive.when_not('cinder-storpool-charm.stopped')
