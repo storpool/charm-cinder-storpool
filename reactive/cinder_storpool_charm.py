@@ -129,9 +129,7 @@ def build_presence(current):
 def deconfigure():
     if reactive.is_state('storpool-presence.configured'):
         rdebug('  - clearing any cached config state')
-        spconfig.unset_meta_config()
         spconfig.unset_meta_generation()
-        spconfig.unset_our_id()
         reactive.remove_state('storpool-presence.configured')
 
 
@@ -186,7 +184,6 @@ def announce_presence(force=False):
                   file=spconf)
         if cfg is not None:
             # ...then, finally, process that config!
-            spconfig.set_meta_config(cfg)
             reactive.set_state('storpool-presence.configured')
             last_gen = spconfig.get_meta_generation()
             if last_gen is None or int(cfg_gen) > int(last_gen):
@@ -286,18 +283,6 @@ def get_status():
         'ready': False,
     }
 
-    try:
-        c = spconfig.m()
-        if isinstance(c, spconfig.QuasiConfig):
-            c = c.get_dict()
-        if c is None or isinstance(c, dict):
-            status['block-config'] = c
-        else:
-            hookenv.log('spconfig.m() did not return a dictionary, {t} instead'
-                        .format(t=type(c).__name__))
-    except sperror.StorPoolNoConfigException:
-        status['block-config'] = None
-
     status['presence'] = service_hook.fetch_presence(RELATIONS)
     parent_name = 'block:' + status['parent-node']
 
@@ -307,8 +292,6 @@ def get_status():
         msg = 'No Cinder hook yet'
     elif parent_name not in status['presence']['nodes']:
         msg = 'No presence data from our parent node'
-    elif status['block-config'] is None:
-        msg = 'No configuration received from the storpool-block charm'
     elif template is None or template == '':
         msg = 'No "storpool_template" in the charm config'
     elif not reactive.is_state('cinder-storpool.ready'):
