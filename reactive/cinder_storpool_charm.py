@@ -169,19 +169,17 @@ def announce_presence(force=False):
             break
 
     parent_id = 'block:' + sputils.get_parent_node()
-    our_id = data['nodes'].get(parent_id, {}).get('id')
-    if our_id is None:
-        rdebug('no ourid in the StorPool presence data yet', cond='announce')
+    if parent_id not in data['nodes']:
+        rdebug(
+            'no {parent} in the presence data yet'.format(parent=parent_id),
+            cond='announce'
+        )
         deconfigure()
     else:
-        rdebug('got ourid {oid}'.format(oid=our_id), cond='announce')
-        if not os.path.exists('/etc/storpool.conf.d'):
-            os.mkdir('/etc/storpool.conf.d', mode=0o755)
-        with open('/etc/storpool.conf.d/cinder-sub-ourid.conf',
-                  mode='wt') as spconf:
-            print('[{name}]\nSP_OURID={oid}'
-                  .format(name=platform.node(), oid=our_id),
-                  file=spconf)
+        rdebug(
+            'found presence data for {parent}'.format(parent=parent_id),
+            cond='announce'
+        )
         if cfg is not None:
             # ...then, finally, process that config!
             reactive.set_state('storpool-presence.configured')
