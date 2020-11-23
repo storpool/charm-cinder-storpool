@@ -139,12 +139,12 @@ def announce_presence(force=False):
            .format(gen=data['generation']),
            cond='announce')
 
-    rdebug('state: {d}'.format(d=list(map(lambda k: '{k}={m}'
-                                                    .format(k=k,
-                                                            m=data['nodes'][k]
-                                                            .get('id')),
-                                          sorted(data['nodes'].keys())))),
-           cond='announce')
+    rdebug('state: {d}'.format(
+        d=repr(sorted(
+            (key, value['hostname'], value['generation'], 'config' in value)
+            for key, value in data['nodes'].items())
+        )),
+        cond='announce')
 
     announce = force
     cinder_joined = reactive.is_state('cinder-p.notify-joined')
